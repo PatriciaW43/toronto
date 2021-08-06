@@ -1,0 +1,80 @@
+
+    d3.json("/sites/default/d3_files/json/PHU_Boundary_fixed_PHUnames.json", function(PHUs) {
+
+    // Load the phu to phu map from the csv file 
+     d3.csv(phu1phu2CSV, function(phu1phu2) { 
+
+        phu1phu2.forEach(function(phu1phu2Element) { 
+ 
+          phu1phu2Element.phu1 = phu1phu2Element["PHU name"] ; 
+          phu1phu2Element.phu2 = phu1phu2Element.Reporting_PHU;
+          
+     // Load the data from the csv file 
+     
+     d3.csv(phuVaxAgeCSV, function(vaccines) { 
+       vaccines.forEach (function(vaccineElement) {  
+        // check the phu2 against the correct one !
+       if (vaccineElement["PHU_NAME"] == phu1phu2Element.phu1) { 
+           vaccineElement["PHU_NAME"] = phu1phu2Element.phu2;  
+       } // end if (vaccineElement
+     }) // end vaccines.forEach
+
+        vaccines = vaccines.filter(function(vaccineElement) {
+           var keyDate = parseDate(vaccineElement.Date);  
+           var daysDiff = d3.timeDay.count(keyDate, filterDate); 
+           return daysDiff <= maxDays; 
+         }) // end vaccines filter
+
+        vaccines = vaccines.filter(function(vaccineElement) {
+          return vaccineElement.Agegroup == selectedOption; 
+       }) // end vaccines filter
+ 
+// fix order of MultiPolygon and Polygon - this is a technical issue
+
+      PHUs.forEach(function(PHUElement) { console.log("PHUElement ",PHUElement)
+         if(PHUElement.geometry.type == "MultiPolygon") { //
+            PHUElement.geometry.coordinates.forEach(function(polygon) {
+            polygon.forEach(function(ring) {
+               ring.reverse();
+            })
+          })
+         } 
+        else if (PHUElement.geometry.type == "Polygon") {
+           PHUElement.geometry.coordinates.forEach(function(ring) {
+               ring.reverse();
+           })  // end PHUElement.geometry.type
+        } // end if (PHUElement.geometry.type == "Polygon")
+      }) // end PHUs.forEach(function(PHUElement)
+// add the new fields to PHUs
+    vaccines.forEach(function(vaccinesElement) {
+        PHUs.forEach (function(PHUElement) { 
+        
+          if (PHUElement.properties.PHU_NAME_E == vaccinesElement.PHU_NAME) {
+ 
+              PHUElement.properties.rate = 100*(vaccinesElement.Percent_fully_vaccinated);  //console.log("PHUs.properties.rate ",PHUs.properties.rate)
+              PHUElement.properties.count =100*(vaccinesElement.Percent_at_least_one_dose); //console.log("PHUs.properties.count ",PHUs.properties.count)
+             
+          } // end if
+ 
+      }) // end PHUs.forEach 
+
+      // Add the polygons
+      var polygons = map.selectAll('path')
+        .data(PHUs) 
+        .enter()
+        .append('path')
+        .attr('d', path)
+        .attr("fill", function(d){
+                 return "white"
+             })
+       .attr("stroke", "#222")
+
+       .on('mouseover', tip.show)
+       .on('mouseout', tip.hide)
+    }) // end PHUs Json
+    }); // end vaccines.forEach
+
+    }) // end Vaccines CSV
+    }); // end phuVaxAgeCSV
+
+})
